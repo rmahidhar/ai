@@ -43,11 +43,6 @@ def generate_names_from_model(P, itos, g):
     idx = 0
     name = []
     while True:
-        # Generate using uniform distrubution where all characters
-        # are equally likely be the next character.
-        # p = torch.ones(27) / 27 # generate using uniform distrubution
-        # 
-
         # Generate using bigram model probability distrubution for next char generation 
         p = P[idx]
         idx = torch.multinomial(p, num_samples=1, replacement=True, generator=g).item()
@@ -56,6 +51,41 @@ def generate_names_from_model(P, itos, g):
         if idx == 0:
             break
     print("".join(name))
+
+def generate_names_with_uniform_distribution(itos, g):
+    idx = 0
+    name = []
+    while True:
+        # Generate using uniform distrubution where all characters
+        # are equally likely be the next character.
+        p = torch.ones(27) / 27 # generate using uniform distrubution
+        idx = torch.multinomial(p, num_samples=1, replacement=True, generator=g).item()
+        name.append(itos[idx])
+        # check for end token
+        if idx == 0:
+            break
+    print("".join(name))
+
+
+def compute_model_log_likelihood(P, words, stoi):
+    n = 0
+    log_likelihood = 0.0
+    for word in words:
+        chs = ['.'] + list(word) + ['.']
+        for ch1, ch2 in zip(chs, chs[1:]):
+            idx1 = stoi[ch1]
+            idx2 = stoi[ch2]
+            prob = P[idx1, idx2]
+            logprob = torch.log(prob)
+            log_likelihood += logprob
+            n += 1
+
+    nll = -log_likelihood
+    avg_nll = nll/n
+
+    print(f'{log_likelihood=}')
+    print(f'{nll=}')
+    print(f'{avg_nll=}')
 
 
 def main():
@@ -68,10 +98,16 @@ def main():
     N = get_bigram_frequency_counts(words, stoi)
     plot_bigram_frequency_counts(N, itos)
     P = get_bigram_frequency_counts_probability_distribution(N)
+    compute_model_log_likelihood(P, words, stoi)
 
+    print("\nGenerating names from model:")
     g = torch.Generator().manual_seed(2147483647)
     for i in range(10):
         generate_names_from_model(P, itos, g)
 
+    print("\nGenerating names without model:")
+    g = torch.Generator().manual_seed(2147483647)
+    for i in range(10):
+        generate_names_with_uniform_distribution(itos, g)
 
 main()
